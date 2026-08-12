@@ -1,4 +1,4 @@
-import { closeDb, connectDb } from '../db.js';
+import { closeDb, connectDb } from '../config/db.js';
 import { reconcile } from '../services/reconcile.js';
 
 /**

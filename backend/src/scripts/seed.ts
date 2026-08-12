@@ -1,8 +1,17 @@
 import type { Db } from 'mongodb';
-import { closeDb, connectDb, ensureIndexes } from '../db.js';
+import { closeDb, connectDb, ensureIndexes } from '../config/db.js';
+import { AUTH_COLLECTIONS, type UserDoc } from '../domain/authTypes.js';
 import { addMonths, lastDayOfMonth, monthRange, parseMonthKey, utcDate } from '../domain/dates.js';
 import { postMany, type NewEntry } from '../domain/ledger.js';
-import { COLLECTIONS } from '../domain/types.js';
+import { ensureAuthSetup, usersExist } from '../services/authService.js';
+import { hashPassword } from '../services/passwords.js';
+import {
+  employees as employeesCol,
+  journalEntries,
+  students as studentsCol,
+  type Employee,
+  type Student,
+} from '../models/index.js';
 import {
   accrueSalaries,
   buildStudentPayment,
@@ -14,7 +23,6 @@ import {
   payExpense,
   paySalaries,
   recognizeMonth,
-  type CashMethod,
 } from '../services/postings.js';
 
 /**
@@ -62,29 +70,10 @@ const LAST_NAMES = [
   'Karimova', 'Toshmatova', 'Rahimova', 'Yusupova', 'Ergasheva', 'Saidova', 'Mirzayeva', 'Abdullayeva',
 ] as const;
 
-// ── Modellar ──────────────────────────────────────────────────────────
+// ── Generatorlar (tiplar: models/ dan) ────────────────────────────────
 
-interface SeedStudent {
-  _id: string;
-  name: string;
-  startMonth: string;
-  endMonth: string;
-  listFee: number;
-  discountPct: number;
-  fee: number; // chegirmadan keyingi oylik to'lov
-  payer: 'monthly' | 'prepay3';
-  method: CashMethod;
-}
-
-interface SeedEmployee {
-  _id: string;
-  name: string;
-  salary: number;
-  startMonth: string;
-}
-
-function makeStudents(months: string[]): SeedStudent[] {
-  const students: SeedStudent[] = [];
+function makeStudents(months: string[]): Student[] {
+  const students: Student[] = [];
   const FEES = [400_000, 500_000, 600_000, 800_000, 1_000_000, 1_200_000] as const;
   for (let i = 0; i < 800; i++) {
     // 25% — markaz ochilgan choragida kelganlar, qolganlari 3.5 yil davomida
@@ -115,8 +104,8 @@ function makeStudents(months: string[]): SeedStudent[] {
   return students;
 }
 
-function makeEmployees(months: string[]): SeedEmployee[] {
-  const employees: SeedEmployee[] = [];
+function makeEmployees(months: string[]): Employee[] {
+  const employees: Employee[] = [];
   const ROLES_SALARY: [number, number][] = [
     [3_000_000, 4_500_000],
     [4_500_000, 6_500_000],
@@ -141,16 +130,34 @@ function makeEmployees(months: string[]): SeedEmployee[] {
 async function seed(db: Db): Promise<void> {
   const t0 = Date.now();
   console.log('[seed] Baza tozalanmoqda...');
-  await db.collection(COLLECTIONS.ENTRIES).deleteMany({});
-  await db.collection(COLLECTIONS.STUDENTS).deleteMany({});
-  await db.collection(COLLECTIONS.EMPLOYEES).deleteMany({});
+  await journalEntries(db).deleteMany({});
+  await studentsCol(db).deleteMany({});
+  await employeesCol(db).deleteMany({});
   await ensureIndexes(db);
+
+  // Auth: tizim rollari + demo direktor hisobi (faqat baza bo'sh bo'lsa —
+  // qayta seed foydalanuvchi hisoblarini o'chirmaydi)
+  await ensureAuthSetup(db);
+  if (!(await usersExist(db))) {
+    const now = new Date();
+    const owner: UserDoc = {
+      email: 'director@edutizim.uz',
+      name: 'Demo Direktor',
+      passwordHash: await hashPassword('demo1234'),
+      roleKey: 'owner',
+      active: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await db.collection<UserDoc>(AUTH_COLLECTIONS.USERS).insertOne(owner);
+    console.log('[seed] Demo hisob: director@edutizim.uz / demo1234 (owner)');
+  }
 
   const months = monthRange(FIRST_MONTH, LAST_MONTH);
   const students = makeStudents(months);
   const employees = makeEmployees(months);
-  await db.collection(COLLECTIONS.STUDENTS).insertMany(students as never[]);
-  await db.collection(COLLECTIONS.EMPLOYEES).insertMany(employees as never[]);
+  await studentsCol(db).insertMany(students);
+  await employeesCol(db).insertMany(employees);
   console.log(`[seed] ${students.length} o'quvchi, ${employees.length} xodim, ${months.length} oy`);
 
   // Kapital, jihoz, kredit jadvali
@@ -277,7 +284,7 @@ async function seed(db: Db): Promise<void> {
     }
   }
 
-  const total = await db.collection(COLLECTIONS.ENTRIES).countDocuments();
+  const total = await journalEntries(db).countDocuments();
   console.log('');
   console.log('════════════════════════════════════════════════');
   console.log('  SEED YAKUNLANDI');

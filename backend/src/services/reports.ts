@@ -7,7 +7,7 @@ import {
   type CashFlowCategory,
 } from '../domain/accounts.js';
 import { monthEnd, addMonths } from '../domain/dates.js';
-import { COLLECTIONS } from '../domain/types.js';
+import { journalEntries } from '../models/journal-entry.model.js';
 
 /**
  * Uchta hisobot — uchtasi ham faqat jurnal yozuvlaridan o'qiydi.
@@ -18,7 +18,7 @@ import { COLLECTIONS } from '../domain/types.js';
  * tekshiruv o'z-o'zini tasdiqlagan bo'lar edi.
  */
 
-const entriesCol = (db: Db) => db.collection(COLLECTIONS.ENTRIES);
+const entriesCol = (db: Db) => journalEntries(db);
 
 // ───────────────────────────── Balans ─────────────────────────────
 

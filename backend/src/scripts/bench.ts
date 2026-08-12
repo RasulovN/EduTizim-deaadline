@@ -1,5 +1,6 @@
-import { closeDb, connectDb } from '../db.js';
+import { closeDb, connectDb } from '../config/db.js';
 import { monthEnd } from '../domain/dates.js';
+import { journalEntries } from '../models/journal-entry.model.js';
 import { balanceSheet, cashFlowByMonth, listMonths, pnlByMonth } from '../services/reports.js';
 
 /**
@@ -27,7 +28,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   const last = months[months.length - 1]!;
-  const entries = await db.collection('journal_entries').countDocuments();
+  const entries = await journalEntries(db).countDocuments();
 
   console.log('');
   console.log(`BENCH — ${entries.toLocaleString('en-US')} jurnal yozuvi, ${months.length} oy`);

@@ -1,7 +1,8 @@
 import type { Db } from 'mongodb';
+import { journalEntries } from '../models/journal-entry.model.js';
 import { accountOrThrow } from './accounts.js';
 import { monthKeyOf } from './dates.js';
-import { COLLECTIONS, type EntryLine, type JournalEntry } from './types.js';
+import type { EntryLine, JournalEntry } from './types.js';
 
 /**
  * Ledger — jurnal yozuvlarini joylashtirish (posting) qatlami.
@@ -73,7 +74,7 @@ export function validateEntry(entry: NewEntry): void {
 export async function postEntry(db: Db, entry: NewEntry): Promise<JournalEntry> {
   validateEntry(entry);
   const doc: JournalEntry = { ...entry, month: monthKeyOf(entry.date) };
-  await db.collection<JournalEntry>(COLLECTIONS.ENTRIES).insertOne(doc);
+  await journalEntries(db).insertOne(doc);
   return doc;
 }
 
@@ -84,6 +85,6 @@ export async function postMany(db: Db, entries: NewEntry[]): Promise<number> {
     validateEntry(e);
     return { ...e, month: monthKeyOf(e.date) };
   });
-  const res = await db.collection<JournalEntry>(COLLECTIONS.ENTRIES).insertMany(docs);
+  const res = await journalEntries(db).insertMany(docs);
   return res.insertedCount;
 }

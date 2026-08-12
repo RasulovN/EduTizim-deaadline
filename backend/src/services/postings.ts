@@ -2,7 +2,8 @@ import type { Db } from 'mongodb';
 import { ACCOUNTS } from '../domain/accounts.js';
 import { lastDayOfMonth, monthEnd, parseMonthKey, utcDate } from '../domain/dates.js';
 import { postEntry, type NewEntry } from '../domain/ledger.js';
-import { COLLECTIONS, type Allocation, type JournalEntry } from '../domain/types.js';
+import type { Allocation, JournalEntry } from '../domain/types.js';
+import { journalEntries } from '../models/journal-entry.model.js';
 
 /**
  * Biznes hodisalar → jurnal yozuvlari.
@@ -54,8 +55,7 @@ export async function studentPayment(db: Db, p: StudentPaymentParams): Promise<J
  */
 export async function recognizeMonth(db: Db, month: string): Promise<JournalEntry | null> {
   const cutoff = monthEnd(month);
-  const [row] = await db
-    .collection<JournalEntry>(COLLECTIONS.ENTRIES)
+  const [row] = await journalEntries(db)
     .aggregate<{ total: number; count: number }>([
       { $match: { kind: 'student_payment', date: { $lte: cutoff }, 'allocations.month': month } },
       { $unwind: '$allocations' },

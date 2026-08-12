@@ -17,6 +17,13 @@ export function fmtSom(n: number): string {
   return sign + Math.abs(n).toLocaleString('en-US').replace(/,/g, ' ');
 }
 
+/** ISO sana-vaqt → '13.08.2026 14:05' */
+export function fmtDateTime(iso: string): string {
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 /** Katta raqamlar uchun qisqa ko'rinish: 3 240 000 000 → '3.24 mlrd' */
 export function fmtCompact(n: number): string {
   const sign = n < 0 ? '−' : '';

@@ -2,7 +2,8 @@ import { MongoClient, type Db } from 'mongodb';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { COLLECTIONS } from './domain/types.js';
+import { env } from './env.js';
+import { ensureAllIndexes } from '../models/index.js';
 
 /**
  * MongoDB ulanish qatlami.
@@ -15,12 +16,10 @@ import { COLLECTIONS } from './domain/types.js';
  *      ham `npm run seed && npm run reconcile` qila olishi uchun.
  */
 
-const DB_NAME = process.env.DB_NAME ?? 'edutizim_moliya';
-
 let client: MongoClient | null = null;
 let memServer: { stop: () => Promise<unknown> } | null = null;
 
-const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 async function tryConnect(uri: string, timeoutMs: number): Promise<MongoClient | null> {
   const c = new MongoClient(uri, { serverSelectionTimeoutMS: timeoutMs });
@@ -40,7 +39,7 @@ export interface ConnectOptions {
 }
 
 export async function connectDb(opts: ConnectOptions = {}): Promise<Db> {
-  if (client) return client.db(DB_NAME);
+  if (client) return client.db(env.dbName);
 
   if (opts.ephemeral) {
     const { MongoMemoryServer } = await import('mongodb-memory-server');
@@ -48,20 +47,19 @@ export async function connectDb(opts: ConnectOptions = {}): Promise<Db> {
     memServer = server;
     client = new MongoClient(server.getUri());
     await client.connect();
-    return client.db(DB_NAME);
+    return client.db(env.dbName);
   }
 
-  const envUri = process.env.MONGODB_URI;
-  if (envUri) {
-    client = new MongoClient(envUri);
+  if (env.mongoUri) {
+    client = new MongoClient(env.mongoUri);
     await client.connect();
-    return client.db(DB_NAME);
+    return client.db(env.dbName);
   }
 
   const local = await tryConnect('mongodb://127.0.0.1:27017', 900);
   if (local) {
     client = local;
-    return client.db(DB_NAME);
+    return client.db(env.dbName);
   }
 
   // Embedded rejim: doimiy dbPath → seed/reconcile/dev alohida jarayonlarda
@@ -76,17 +74,11 @@ export async function connectDb(opts: ConnectOptions = {}): Promise<Db> {
   console.log(`[db] Lokal MongoDB topilmadi — embedded rejim (ma'lumot: ${dbPath})`);
   client = new MongoClient(server.getUri());
   await client.connect();
-  return client.db(DB_NAME);
+  return client.db(env.dbName);
 }
 
 export async function ensureIndexes(db: Db): Promise<void> {
-  const entries = db.collection(COLLECTIONS.ENTRIES);
-  await entries.createIndexes([
-    { key: { date: 1 } },
-    { key: { month: 1 } },
-    { key: { 'lines.account': 1, month: 1 } },
-    { key: { kind: 1, 'allocations.month': 1 } },
-  ]);
+  await ensureAllIndexes(db);
 }
 
 export async function closeDb(): Promise<void> {

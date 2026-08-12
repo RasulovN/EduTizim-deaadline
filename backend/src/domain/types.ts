@@ -39,9 +39,3 @@ export interface JournalEntry {
   allocations?: Allocation[];
   meta?: Record<string, unknown>;
 }
-
-export const COLLECTIONS = {
-  ENTRIES: 'journal_entries',
-  STUDENTS: 'students',
-  EMPLOYEES: 'employees',
-} as const;
