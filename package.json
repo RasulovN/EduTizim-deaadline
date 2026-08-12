@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "EduTizim.uz — Moliya moduli: Balans, Pul oqimi, Foyda va zarar",
+  "engines": {
+    "node": ">=20"
+  },
   "workspaces": [
     "backend",
     "client"
