@@ -205,11 +205,11 @@ O'lchov: `npm run bench`, median (5 urinish), embedded MongoDB, Windows 11:
 
 | Hisobot | Vaqt |
 | --- | --- |
-| P&L (bitta oy) | **2.2 ms** |
-| P&L (butun tarix, 43 oy) | **9.1 ms** |
-| Pul oqimi (bitta oy) | **152 ms** |
-| Pul oqimi (butun tarix) | **187 ms** |
-| Balans (sanaga) | **52 ms** |
+| P&L (bitta oy) | **2.7 ms** |
+| P&L (butun tarix, 43 oy) | **8.6 ms** |
+| Pul oqimi (bitta oy) | **132 ms** |
+| Pul oqimi (butun tarix) | **133 ms** |
+| Balans (sanaga) | **70 ms** |
 
 Qilingan optimallashtirishlar va sabablari:
 
@@ -285,9 +285,9 @@ inkassatsiya.
 
 ## Muammolarni bartaraf etish
 
-- **Embedded rejimda "port band" (27317) xatosi:** oldingi ishga tushirishdan
-  mongod jarayoni qolib ketgan — `taskkill /IM mongod-x64-win32-7.0.24.exe /F`
-  (yoki Task Manager) bilan yopib, qayta urining.
+- **Oldingi ishga tushirishdan mongod qolib ketsa** (dev server qattiq
+  o'chirilganda bo'lishi mumkin) — muammo emas: keyingi skript uni topib,
+  yangisini ochmasdan o'sha instansiyaga ulanadi (`config/db.ts`).
 - Embedded rejimda skriptlarni **ketma-ket** ishlating (`seed` tugagach `dev`);
   real MongoDB (`MONGODB_URI`) bilan bunday cheklov yo'q.
 

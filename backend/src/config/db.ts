@@ -64,6 +64,16 @@ export async function connectDb(opts: ConnectOptions = {}): Promise<Db> {
 
   // Embedded rejim: doimiy dbPath → seed/reconcile/dev alohida jarayonlarda
   // ham bir xil ma'lumotni ko'radi.
+  // Avvalgi ishga tushirishdan embedded instansiya tirik qolgan bo'lsa
+  // (masalan, dev server qattiq o'chirilganda mongod bolasi qoladi),
+  // yangisini ochmasdan o'shanga ulanamiz — port/lock to'qnashuvi bo'lmaydi.
+  const leftover = await tryConnect('mongodb://127.0.0.1:27317', 700);
+  if (leftover) {
+    console.log('[db] Avvalgi embedded MongoDB instansiyasi topildi — qayta ishlatilmoqda');
+    client = leftover;
+    return client.db(env.dbName);
+  }
+
   const dbPath = path.join(backendRoot, '..', '.mongo-data');
   mkdirSync(dbPath, { recursive: true });
   const { MongoMemoryServer } = await import('mongodb-memory-server');
