@@ -52,7 +52,7 @@ export function validateLines(lines: EntryLine[]): void {
 
 export type NewEntry = Omit<JournalEntry, '_id' | 'month'>;
 
-export async function postEntry(db: Db, entry: NewEntry): Promise<JournalEntry> {
+export function validateEntry(entry: NewEntry): void {
   validateLines(entry.lines);
 
   if (entry.kind === 'student_payment') {
@@ -68,8 +68,22 @@ export async function postEntry(db: Db, entry: NewEntry): Promise<JournalEntry> 
       );
     }
   }
+}
 
+export async function postEntry(db: Db, entry: NewEntry): Promise<JournalEntry> {
+  validateEntry(entry);
   const doc: JournalEntry = { ...entry, month: monthKeyOf(entry.date) };
   await db.collection<JournalEntry>(COLLECTIONS.ENTRIES).insertOne(doc);
   return doc;
+}
+
+/** Seed uchun: bir xil qat'iy validatsiya bilan ommaviy joylash */
+export async function postMany(db: Db, entries: NewEntry[]): Promise<number> {
+  if (entries.length === 0) return 0;
+  const docs: JournalEntry[] = entries.map((e) => {
+    validateEntry(e);
+    return { ...e, month: monthKeyOf(e.date) };
+  });
+  const res = await db.collection<JournalEntry>(COLLECTIONS.ENTRIES).insertMany(docs);
+  return res.insertedCount;
 }

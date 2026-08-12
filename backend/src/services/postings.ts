@@ -1,7 +1,7 @@
 import type { Db } from 'mongodb';
 import { ACCOUNTS } from '../domain/accounts.js';
 import { lastDayOfMonth, monthEnd, parseMonthKey, utcDate } from '../domain/dates.js';
-import { postEntry } from '../domain/ledger.js';
+import { postEntry, type NewEntry } from '../domain/ledger.js';
 import { COLLECTIONS, type Allocation, type JournalEntry } from '../domain/types.js';
 
 /**
@@ -15,12 +15,18 @@ export type CashMethod = 'cash' | 'bank';
 
 const cashCode = (m: CashMethod) => (m === 'cash' ? ACCOUNTS.KASSA.code : ACCOUNTS.BANK.code);
 
-/** O'quvchi to'lovi: Pul ↑, "Oldindan to'langan darslar" majburiyati ↑. Daromad EMAS. */
-export async function studentPayment(
-  db: Db,
-  p: { date: Date; amount: number; method: CashMethod; allocations: Allocation[]; studentId?: string; memo?: string },
-): Promise<JournalEntry> {
-  return postEntry(db, {
+export interface StudentPaymentParams {
+  date: Date;
+  amount: number;
+  method: CashMethod;
+  allocations: Allocation[];
+  studentId?: string;
+  memo?: string;
+}
+
+/** O'quvchi to'lovi yozuvini qurish (seed bulk-insert ham shundan foydalanadi) */
+export function buildStudentPayment(p: StudentPaymentParams): NewEntry {
+  return {
     date: p.date,
     kind: 'student_payment',
     memo: p.memo ?? `O'quvchi to'lovi (${p.allocations.map((a) => a.month).join(', ')})`,
@@ -30,7 +36,12 @@ export async function studentPayment(
     ],
     allocations: p.allocations,
     meta: p.studentId ? { studentId: p.studentId } : undefined,
-  });
+  };
+}
+
+/** O'quvchi to'lovi: Pul ↑, "Oldindan to'langan darslar" majburiyati ↑. Daromad EMAS. */
+export async function studentPayment(db: Db, p: StudentPaymentParams): Promise<JournalEntry> {
+  return postEntry(db, buildStudentPayment(p));
 }
 
 /**
