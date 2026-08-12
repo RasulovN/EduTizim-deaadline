@@ -86,14 +86,17 @@ interface SeedEmployee {
 function makeStudents(months: string[]): SeedStudent[] {
   const students: SeedStudent[] = [];
   const FEES = [400_000, 500_000, 600_000, 800_000, 1_000_000, 1_200_000] as const;
-  for (let i = 0; i < 520; i++) {
-    // 55% — markaz ochilgan yarim yilda kelganlar, qolganlari keyin qo'shilgan
-    const startIdx = chance(0.55) ? randInt(0, 5) : randInt(6, months.length - 2);
+  for (let i = 0; i < 800; i++) {
+    // 25% — markaz ochilgan choragida kelganlar, qolganlari 3.5 yil davomida
+    // doimiy oqim bilan qo'shilib boradi (o'sib borayotgan markaz)
+    const startIdx = chance(0.25) ? randInt(0, 3) : randInt(0, months.length - 2);
     const startMonth = months[startIdx]!;
-    const duration = randInt(6, 42);
+    const duration = randInt(9, 36);
     const endIdx = Math.min(startIdx + duration - 1, months.length - 1);
-    // ~15% kursni muddatidan oldin tashlab ketadi
-    const realEndIdx = chance(0.15) ? randInt(startIdx, endIdx) : endIdx;
+    // ~15% kursni muddatidan oldin tashlab ketadi (kamida 2-3 oy o'qib)
+    const realEndIdx = chance(0.15)
+      ? randInt(Math.min(startIdx + 2, endIdx), endIdx)
+      : endIdx;
     const listFee = pick(FEES);
     const discountPct = chance(0.2) ? pick([10, 15, 20, 25] as const) : 0;
     const fee = Math.round((listFee * (100 - discountPct)) / 100 / 1000) * 1000;
