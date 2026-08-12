@@ -17,12 +17,16 @@ npm install          # workspaces: backend + client birga o'rnatiladi
 
 npm run seed         # 3.5 yillik ma'lumot (43 oy, 800 o'quvchi, ~11 000 yozuv)
 npm run reconcile    # uchala tenglikni hamma oy bo'yicha tekshiradi (exit 0/1)
-npm test             # 5 majburiy stsenariy + ledger invariantlari (30 test)
+npm test             # 5 majburiy stsenariy + topshiriq misollari (37 test)
 npm run dev          # API (4000) + frontend (5173) birga
 npm run bench        # hisobotlar unumdorligi o'lchovi
 ```
 
-Brauzerda: **http://localhost:5173** — oy tanlanadi, uchala hisobot ko'rinadi.
+Brauzerda: **http://localhost:5173** — kirgach oy tanlanadi, uchala hisobot ko'rinadi.
+
+**Demo hisob** (seed yaratadi): `director@edutizim.uz` / `demo1234` (rol: Egasi).
+Yoki o'zingiz ro'yxatdan o'ting — bo'sh bazada birinchi ro'yxatdan o'tgan
+foydalanuvchi avtomatik "Egasi" bo'ladi.
 
 **MongoDB haqida.** Ulanish tartibi: `MONGODB_URI` env → lokal
 `mongodb://127.0.0.1:27017` → hech biri topilmasa `mongodb-memory-server`
@@ -149,9 +153,14 @@ farq 0 so'm.**
 
 ## Testlar — `npm test`
 
-Topshiriqdagi 5 stsenariy (qiymatlar jadvallarning aynan o'zi) + ledger
-invariantlari. Har stsenariy **alohida, toza in-memory MongoDB** da ishlaydi.
-30 test — hammasi o'tadi.
+**37 test, 7 fayl**, har biri **alohida, toza in-memory MongoDB** da:
+
+- Topshiriqdagi **5 majburiy stsenariy** — qiymatlar jadvallarning aynan o'zi
+- Topshiriqning **2.3-bo'limidagi yanvar misoli raqamma-raqam**: foyda 13 mln,
+  pul +55 mln, oy oxiri 105 mln, ko'prik formulasi bilan birga
+- **2.2-jadvalning inkassatsiya qatori**: P&L ga ham, pul oqimiga ham ta'sir
+  yo'q, faqat bir aktivdan ikkinchisiga
+- Ledger invariantlari: balanslanmagan/kasr/manfiy/noma'lum hisob rad etiladi
 
 ## API
 
@@ -162,10 +171,32 @@ invariantlari. Har stsenariy **alohida, toza in-memory MongoDB** da ishlaydi.
 | `GET /api/reports/balance?date=2026-01-31` (yoki `month`) | Balans berilgan sanaga |
 | `GET /api/reports/monthly?month=` | uchala hisobot bitta so'rovda (frontend) |
 | `GET /api/months`, `GET /api/reconcile`, `GET /api/health` | yordamchilar |
+| `POST /api/auth/login·register·refresh·logout·forgot·reset` | autentifikatsiya |
+| `GET /api/auth/me`, `PATCH /api/auth/profile`, `POST /api/auth/change-password` | profil |
+| `/api/users`, `/api/roles`, `/api/logs` (CRUD) | RBAC boshqaruvi va audit |
 
-Xavfsizlik: `helmet`, cheklangan CORS (`CLIENT_ORIGIN`), `zod` bilan qat'iy
-kirish validatsiyasi, JSON hajm limiti, xatolarda ichki tafsilot oshkor
-qilinmaydi. Autentifikatsiya topshiriq doirasidan tashqarida (10-bo'lim).
+Hisobot endpointlari `reports.view` ruxsatini talab qiladi.
+
+## Autentifikatsiya va RBAC (bonus)
+
+Topshiriqning 10-bo'limi buni doiradan tashqarida deb belgilagan — shuning
+uchun **avval butun moliya yadrosi yakunlanib, tengliklar va testlar toza
+o'tgach**, real CRM ehtiyojini ko'rsatish uchun alohida qatlam sifatida
+qo'shildi. Hisobot mantiqiga bitta qator ham tegilmagan.
+
+- **Tokenlar:** qisqa umrli JWT access (15 daq) + rotatsiyalanadigan refresh
+  sessiya (30 kun), ikkalasi **httpOnly cookie** da — JS ga chiqmaydi
+- **Parollar:** Node ichki `scrypt` (xotira-og'ir KDF), timing-safe taqqoslash
+- **RBAC:** 4 tizim roli (Egasi / Administrator / Direktor / Kuzatuvchi) +
+  maxsus rollar, ruxsatlar: `reports.view`, `users.manage`, `roles.manage`,
+  `logs.view`. Himoya qoidalari: oxirgi Egasini o'chirib/bloklab bo'lmaydi,
+  o'zini bloklash taqiqlangan, tizim rollari o'chirilmaydi
+- **Audit:** login urinishlari (muvaffaqiyatsizlari ham), barcha CRUD va parol
+  amallari bazaga yoziladi; filtr + paginatsiya bilan ko'riladi
+- **Himoya:** login rate-limit (5 urinish / 15 daq), CSRF Origin tekshiruvi,
+  `helmet`, credentials bilan qat'iy CORS, JSON hajm limiti, zod validatsiya
+- **Parol tiklash:** bir martalik token (30 daq); SMTP yo'q — havola server
+  konsoliga chiqadi (dev rejimda javobda ham qaytadi)
 
 ## Unumdorlik (talab: < 1 s)
 
@@ -196,17 +227,35 @@ hisobot 187 ms — talabdan 5 baravar tez, murakkablikka arzimaydi. Ma'lumot
 ~100× o'ssa, birinchi qadam — oylik snapshot kolleksiyasi (balans uchun
 kumulyativ yig'ishni qisqartiradi).
 
-## Loyiha strukturasi
+## Loyiha strukturasi (qatlamli arxitektura)
 
 ```
 backend/src/
-  domain/      # accounts (hisoblar rejasi), ledger (invariantlar), dates, types
-  services/    # postings (hodisa→provodka), reports (3 hisobot), reconcile
-  scripts/     # seed, reconcile (CLI), bench
-  api/         # Express server
-  tests/       # 5 stsenariy + ledger invariantlari
-client/src/    # bitta sahifa: oy tanlash + uchala hisobot
+  config/       # env (markazlashgan konfiguratsiya), db (ulanish + fallback)
+  domain/       # sof biznes qoidalar: accounts (hisoblar rejasi),
+                # ledger (invariantlar), dates, types, authTypes
+  models/       # kolleksiya modellari: journal-entry, student, employee
+                # (tiplar, accessorlar, indekslar — data-access qatlami)
+  services/     # postings (hodisa→provodka), reports (3 hisobot), reconcile,
+                # authService (JWT/sessiyalar), passwords (scrypt), audit
+  controllers/  # HTTP qatlami: validatsiya + servis chaqiruvi
+  api/          # server (kompozitsiya), reportsRoutes, authRoutes,
+                # adminRoutes, middleware (auth, RBAC, CSRF, rate-limit)
+  scripts/      # seed, reconcile (CLI), bench
+  tests/        # 37 test: 5 stsenariy + topshiriq misollari + invariantlar
+client/src/
+  auth/         # AuthContext (sessiya, 401→refresh→retry)
+  layouts/      # himoyalangan qobiq (nav ruxsatlarga qarab)
+  pages/        # Dashboard, Profil, auth/ (login, register, forgot, reset),
+                # admin/ (foydalanuvchilar, rollar, audit loglar)
+  components/   # hisobot kartalari, UI bo'laklari
 ```
+
+**"Modellar qani?"** — `backend/src/models/` da. Mongoose ataylab
+ishlatilmagan: ledger invariantlari (Σdebet=Σkredit, butun so'm) ODM sxema
+validatsiyasidan kuchliroq kafolat beradi, hisobotlar esa sof aggregation
+pipeline — model qatlami tiplangan accessor + indekslar sifatida yetarli
+(topshiriq 15-bo'lim: kutubxona tanlovi baholanmaydi).
 
 ## Seed nimalarni yaratadi (`npm run seed`)
 
@@ -217,6 +266,30 @@ to'lamaydiganlar, tashlab ketuvchilar), 22 xodim (ish haqi keyingi oy
 qo'shimcha kiritgan), 18% li bank krediti (har oy 20-sanada asosiy qarz +
 foiz), jihoz xaridlari, naqd/bank aralash to'lovlar va oy oxirida
 inkassatsiya.
+
+## Topshiriq talablari xaritasi
+
+| Talab (bo'lim) | Qayerda |
+| --- | --- |
+| Uchta tenglik, aniq nol (4) | `services/reconcile.ts` + `npm run reconcile` — 43 oy, farq 0 |
+| 5 majburiy stsenariy (5) | `tests/scenario1..5-*.test.ts` — qiymatlar jadvaldagidek |
+| 2.2-jadval mantiqi | `services/postings.ts` — har qator uchun provodka shabloni |
+| 2.3-misol | `tests/topshiriq-misollari.test.ts` — raqamma-raqam |
+| Seed: 3 yil, 500+ o'quvchi, 20+ xodim, 2 investor, kredit, inkassatsiya (6) | `scripts/seed.ts` — 43 oy, 800 o'quvchi, 22 xodim |
+| Uchta hisobot endpointi (7) | `api/reportsRoutes.ts` |
+| Frontend: oy → uchala hisobot (8) | `client/src/pages/DashboardPage.tsx` |
+| Unumdorlik < 1 s (9) | quyidagi jadval — eng og'iri 187 ms |
+| Model tanlovi izohi (13.1) | shu fayl, "Ma'lumotlar modeli" bo'limi |
+| Ochiq savol (11) | `DECISIONS.md` |
+| AI workflow (12) | `ai-log.md` |
+
+## Muammolarni bartaraf etish
+
+- **Embedded rejimda "port band" (27317) xatosi:** oldingi ishga tushirishdan
+  mongod jarayoni qolib ketgan — `taskkill /IM mongod-x64-win32-7.0.24.exe /F`
+  (yoki Task Manager) bilan yopib, qayta urining.
+- Embedded rejimda skriptlarni **ketma-ket** ishlating (`seed` tugagach `dev`);
+  real MongoDB (`MONGODB_URI`) bilan bunday cheklov yo'q.
 
 ## Ongli cheklovlar
 

@@ -56,6 +56,21 @@
   2.5 s ga tushirildi.
 - `tsconfig.tsbuildinfo` build artefakti commitga kirib qolgan edi —
   `.gitignore` ga qo'shib, indeksdan chiqarildi.
+- Embedded MongoDB jarayoni (mongod) fon rejimda o'ldirilgan serverdan
+  keyin tirik qolib, portni band qilgan — topib o'chirildi, README ga
+  "muammolarni bartaraf etish" bo'limi qo'shildi.
+
+## Keyingi bosqich: arxitektura va auth (yadro yakunlangandan keyin)
+
+Moliya yadrosi (tengliklar + testlar) toza o'tgach, loyiha qatlamli
+arxitekturaga o'tkazildi (config/models/controllers/api) va bonus sifatida
+to'liq RBAC autentifikatsiya qo'shildi (JWT + refresh rotatsiya, scrypt,
+audit loglar, rollar CRUD). Bunda ishlatilgan qo'shimcha prompt:
+
+> Moliya yadrosiga tegmasdan, hisobot endpointlarini reports.view ruxsati
+> bilan himoyala: JWT access httpOnly cookie'da, refresh rotatsiya bilan
+> alohida sessiya kolleksiyasida, login rate-limit va har bir amal uchun
+> audit log. Birinchi ro'yxatdan o'tgan foydalanuvchi — owner.
 
 ## Kod egaligi
 
