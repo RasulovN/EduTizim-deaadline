@@ -1,0 +1,296 @@
+/* ─── Dizayn tokenlari: yorug' rejim asosiy, tungi rejim media orqali ─── */
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --border: rgba(11, 11, 11, 0.1);
+  --good: #006300;
+  --bad: #d03b3b;
+  --accent: #2a78d6;
+  --badge-good-bg: rgba(12, 163, 12, 0.1);
+  --badge-bad-bg: rgba(208, 59, 59, 0.1);
+  --hover: rgba(11, 11, 11, 0.03);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --border: rgba(255, 255, 255, 0.1);
+    --good: #0ca30c;
+    --bad: #e66767;
+    --accent: #3987e5;
+    --badge-good-bg: rgba(12, 163, 12, 0.14);
+    --badge-bad-bg: rgba(230, 103, 103, 0.14);
+    --hover: rgba(255, 255, 255, 0.04);
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: var(--page);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+
+/* ─── Sarlavha paneli ─── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--grid);
+  margin-bottom: 24px;
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.brand h1 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.brand .sub {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.month-nav button {
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 16px;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+}
+.month-nav button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--ink);
+}
+.month-nav button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.month-nav select {
+  border: 0;
+  border-left: 1px solid var(--grid);
+  border-right: 1px solid var(--grid);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 12px;
+  cursor: pointer;
+  appearance: none;
+  text-align: center;
+  min-width: 150px;
+}
+.month-nav select:focus-visible,
+.month-nav button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* ─── Reconcile belgisi (icon + label — rang yolg'iz ma'no tashimaydi) ─── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.badge.good {
+  color: var(--good);
+  background: var(--badge-good-bg);
+}
+.badge.bad {
+  color: var(--bad);
+  background: var(--badge-bad-bg);
+}
+.badge.wait {
+  color: var(--muted);
+  background: var(--hover);
+}
+
+/* ─── KPI qatori ─── */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+.tile .label {
+  color: var(--ink-2);
+  font-size: 12.5px;
+  margin-bottom: 6px;
+}
+.tile .value {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.tile.hero .value {
+  font-size: 34px;
+}
+.tile .delta {
+  margin-top: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.tile .delta.up { color: var(--good); }
+.tile .delta.down { color: var(--bad); }
+.tile .delta .vs { color: var(--muted); font-weight: 400; }
+
+/* ─── Hisobot kartalari ─── */
+.reports {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 420px) {
+  .reports { grid-template-columns: 1fr; }
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.card > header {
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--grid);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.card > header h2 {
+  font-size: 15px;
+  font-weight: 700;
+}
+.card > header .hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ─── Jadval ─── */
+table.report {
+  width: 100%;
+  border-collapse: collapse;
+}
+table.report td,
+table.report th {
+  padding: 8px 18px;
+  font-size: 13.5px;
+}
+table.report td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+table.report .neg { color: var(--bad); }
+table.report tr.row:hover td { background: var(--hover); }
+table.report tr.section td {
+  padding-top: 14px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+table.report tr.subtotal td {
+  font-weight: 600;
+  border-top: 1px solid var(--grid);
+}
+table.report tr.total td {
+  font-weight: 700;
+  font-size: 14px;
+  border-top: 2px solid var(--ink);
+  padding-top: 10px;
+  padding-bottom: 14px;
+}
+table.report tr.total.ok td { color: var(--good); }
+table.report td .code {
+  color: var(--muted);
+  font-size: 11px;
+  margin-right: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Holatlar ─── */
+.state {
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--muted);
+}
+.state.error { color: var(--bad); }
+.skeleton {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--hover) 25%, var(--grid) 50%, var(--hover) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  margin: 12px 18px;
+}
+@keyframes shimmer {
+  to { background-position: -200% 0; }
+}
+
+footer.pagefoot {
+  margin-top: 32px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
