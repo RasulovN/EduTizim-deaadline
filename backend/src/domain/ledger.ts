@@ -53,6 +53,8 @@ export function validateLines(lines: EntryLine[]): void {
 
 export type NewEntry = Omit<JournalEntry, '_id' | 'month'>;
 
+const MONTH_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
 export function validateEntry(entry: NewEntry): void {
   validateLines(entry.lines);
 
@@ -60,6 +62,16 @@ export function validateEntry(entry: NewEntry): void {
     const allocs = entry.allocations ?? [];
     if (allocs.length === 0) {
       throw new Error("O'quvchi to'lovida allocations (qaysi oylar uchun) ko'rsatilishi shart");
+    }
+    for (const a of allocs) {
+      if (!MONTH_KEY_RE.test(a.month)) {
+        throw new Error(`Taqsimot oyi noto'g'ri formatda: '${a.month}' (kutilgan: YYYY-MM)`);
+      }
+      if (!Number.isSafeInteger(a.amount) || a.amount <= 0) {
+        throw new Error(
+          `Taqsimot summasi musbat butun son bo'lishi shart: ${a.month} → ${a.amount}`,
+        );
+      }
     }
     const allocTotal = allocs.reduce((s, a) => s + a.amount, 0);
     const paid = entry.lines.reduce((s, l) => s + l.debit, 0);

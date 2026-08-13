@@ -37,5 +37,11 @@ export interface JournalEntry {
   lines: EntryLine[];
   /** faqat kind='student_payment' uchun: to'lov qaysi oylarni qoplaydi */
   allocations?: Allocation[];
+  /**
+   * Oy yopilish hodisalarining idempotentlik kaliti, masalan
+   * 'revenue_recognition:2026-01'. Unique indeks bilan himoyalanadi —
+   * bitta davr ikki marta yopilishi mumkin emas.
+   */
+  closeKey?: string;
   meta?: Record<string, unknown>;
 }

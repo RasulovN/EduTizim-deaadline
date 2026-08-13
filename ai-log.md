@@ -72,6 +72,26 @@ audit loglar, rollar CRUD). Bunda ishlatilgan qo'shimcha prompt:
 > alohida sessiya kolleksiyasida, login rate-limit va har bir amal uchun
 > audit log. Birinchi ro'yxatdan o'tgan foydalanuvchi — owner.
 
+## Audit bosqichi (yakuniy)
+
+Yadro tayyor bo'lgach, loyiha topshiriqning har bandiga qarshi tizimli
+audit qilindi (tashqi tekshiruv ro'yxati bilan). Auditda topilgan va
+tuzatilgan haqiqiy kamchiliklar:
+
+- **Idempotentlik yo'q edi**: `recognizeMonth`/`accrueSalaries` ikki marta
+  chaqirilsa dublikat yozardi → `closeKey` + partial unique indeks + testlar.
+- **Biznes validatsiya kuchsiz edi**: qoldiqdan ortiq ish haqi/kredit
+  to'lovini o'tkazib yuborardi → domen tekshiruvlari + testlar.
+- **Reconcile'ning o'zi testlanmagan edi**: ataylab buzilgan yozuv bilan
+  fixture testi qo'shildi — reconcile haqiqatan xatoni sezishi isbotlandi.
+
+Bunda ishlatilgan prompt:
+
+> Loyihani topshiriqning har bandiga qarshi audit qil: idempotentlik
+> (oy ikki marta yopilsa nima bo'ladi?), qoldiqdan ortiq to'lovlar,
+> reconcile haqiqatan buzilishni sezishini isbotlaydigan test. Ortiqcha
+> narsa qo'shma — faqat haqiqiy kamchiliklarni tuzat.
+
 ## Kod egaligi
 
 Har bir qator kodni tushuntira olaman — model tanlovi, har provodka

@@ -16,6 +16,27 @@ export type CashMethod = 'cash' | 'bank';
 
 const cashCode = (m: CashMethod) => (m === 'cash' ? ACCOUNTS.KASSA.code : ACCOUNTS.BANK.code);
 
+/**
+ * Majburiyat hisobining qoldig'i (kredit − debet) berilgan sanagacha.
+ * Biznes validatsiya uchun: qarzdan ortiq to'lab bo'lmaydi.
+ */
+async function liabilityBalanceAsOf(db: Db, account: string, asOf: Date): Promise<number> {
+  const [row] = await journalEntries(db)
+    .aggregate<{ total: number }>([
+      { $match: { date: { $lte: asOf }, 'lines.account': account } },
+      { $unwind: '$lines' },
+      { $match: { 'lines.account': account } },
+      { $group: { _id: null, total: { $sum: { $subtract: ['$lines.credit', '$lines.debit'] } } } },
+    ])
+    .toArray();
+  return row?.total ?? 0;
+}
+
+/** Davr-yopish hodisasi allaqachon mavjudmi (idempotentlik) */
+async function findByCloseKey(db: Db, closeKey: string): Promise<JournalEntry | null> {
+  return journalEntries(db).findOne({ closeKey });
+}
+
 export interface StudentPaymentParams {
   date: Date;
   amount: number;
@@ -54,6 +75,11 @@ export async function studentPayment(db: Db, p: StudentPaymentParams): Promise<J
  * maydonlari agregatsiya qilinadi.
  */
 export async function recognizeMonth(db: Db, month: string): Promise<JournalEntry | null> {
+  // Idempotentlik: oy allaqachon yopilgan bo'lsa — hech narsa qilinmaydi.
+  // Unique indeks (closeKey) parallel chaqiruvda ham dublikatni bloklaydi.
+  const closeKey = `revenue_recognition:${month}`;
+  if (await findByCloseKey(db, closeKey)) return null;
+
   const cutoff = monthEnd(month);
   const [row] = await journalEntries(db)
     .aggregate<{ total: number; count: number }>([
@@ -71,6 +97,7 @@ export async function recognizeMonth(db: Db, month: string): Promise<JournalEntr
     date: utcDate(year, m, lastDayOfMonth(month), 18),
     kind: 'revenue_recognition',
     memo: `${month}: darslar o'tildi — daromad tan olindi (${row.count} ta to'lovdan)`,
+    closeKey,
     lines: [
       { account: ACCOUNTS.OLDINDAN_TOLOV.code, debit: row.total, credit: 0 },
       { account: ACCOUNTS.KURS_DAROMADI.code, debit: 0, credit: row.total },
@@ -78,16 +105,27 @@ export async function recognizeMonth(db: Db, month: string): Promise<JournalEntr
   });
 }
 
-/** Oy yopilishi: ish haqi hisoblanadi. Xarajat ↑, Majburiyat ↑. Pulga ta'sir yo'q. */
+/**
+ * Oy yopilishi: ish haqi hisoblanadi. Xarajat ↑, Majburiyat ↑. Pulga ta'sir yo'q.
+ * Bir oy uchun faqat bir marta — takror chaqiruv aniq xato bilan rad etiladi
+ * (summasi boshqacha bo'lishi mumkin, jimgina o'tkazib yuborish xatoni yashiradi).
+ */
 export async function accrueSalaries(
   db: Db,
   p: { month: string; amount: number; meta?: Record<string, unknown> },
 ): Promise<JournalEntry> {
+  const closeKey = `salary_accrual:${p.month}`;
+  if (await findByCloseKey(db, closeKey)) {
+    throw new Error(
+      `${p.month} uchun ish haqi allaqachon hisoblangan — takror hisoblash taqiqlanadi`,
+    );
+  }
   const { year, month: m } = parseMonthKey(p.month);
   return postEntry(db, {
     date: utcDate(year, m, lastDayOfMonth(p.month), 18),
     kind: 'salary_accrual',
     memo: `${p.month}: ish haqi hisoblandi (to'lov keyingi oyning 5-sanasida)`,
+    closeKey,
     lines: [
       { account: ACCOUNTS.ISH_HAQI_XARAJATI.code, debit: p.amount, credit: 0 },
       { account: ACCOUNTS.ISH_HAQI_QARZI.code, debit: 0, credit: p.amount },
@@ -96,11 +134,21 @@ export async function accrueSalaries(
   });
 }
 
-/** Ish haqi to'lovi: Majburiyat ↓, Pul ↓. Xarajat EMAS (u allaqachon hisoblangan). */
+/**
+ * Ish haqi to'lovi: Majburiyat ↓, Pul ↓. Xarajat EMAS (u allaqachon hisoblangan).
+ * Validatsiya: mavjud "to'lanmagan ish haqi" qoldig'idan ortiq to'lab bo'lmaydi —
+ * aks holda majburiyat manfiy bo'lib, balans ma'nosiz holatga tushadi.
+ */
 export async function paySalaries(
   db: Db,
   p: { date: Date; amount: number; method?: CashMethod; forMonth: string },
 ): Promise<JournalEntry> {
+  const outstanding = await liabilityBalanceAsOf(db, ACCOUNTS.ISH_HAQI_QARZI.code, p.date);
+  if (p.amount > outstanding) {
+    throw new Error(
+      `Ish haqi to'lovi (${p.amount}) qoldiqdan (${outstanding}) ortiq — avval hisoblash (accrual) bo'lishi kerak`,
+    );
+  }
   return postEntry(db, {
     date: p.date,
     kind: 'salary_payment',
@@ -173,20 +221,40 @@ export async function loanReceived(
 /**
  * Kredit to'lovi — bitta yozuvda ikkiga bo'linadi:
  * asosiy qarz (moliyaviy chiqim, xarajat emas) + foiz (operatsion chiqim, xarajat).
+ *
+ * Validatsiya: asosiy qarz to'lovi joriy kredit qoldig'idan oshmasligi kerak.
+ * Foiz 0 bo'lishi mumkin (faqat asosiy qarz to'lovi) va aksincha.
  */
 export async function loanPayment(
   db: Db,
   p: { date: Date; principal: number; interest: number; method?: CashMethod },
 ): Promise<JournalEntry> {
+  for (const [label, v] of [['asosiy qarz', p.principal], ['foiz', p.interest]] as const) {
+    if (!Number.isSafeInteger(v) || v < 0) {
+      throw new Error(`Kredit to'lovi: ${label} manfiy bo'lmagan butun son bo'lishi shart (${v})`);
+    }
+  }
+  if (p.principal + p.interest === 0) {
+    throw new Error("Kredit to'lovi: summa nol bo'lishi mumkin emas");
+  }
+  if (p.principal > 0) {
+    const outstanding = await liabilityBalanceAsOf(db, ACCOUNTS.BANK_KREDITI.code, p.date);
+    if (p.principal > outstanding) {
+      throw new Error(
+        `Asosiy qarz to'lovi (${p.principal}) kredit qoldig'idan (${outstanding}) ortiq`,
+      );
+    }
+  }
+  const lines = [
+    ...(p.principal > 0 ? [{ account: ACCOUNTS.BANK_KREDITI.code, debit: p.principal, credit: 0 }] : []),
+    ...(p.interest > 0 ? [{ account: ACCOUNTS.KREDIT_FOIZI.code, debit: p.interest, credit: 0 }] : []),
+    { account: cashCode(p.method ?? 'bank'), debit: 0, credit: p.principal + p.interest },
+  ];
   return postEntry(db, {
     date: p.date,
     kind: 'loan_payment',
     memo: `Kredit to'lovi: asosiy qarz ${p.principal}, foiz ${p.interest}`,
-    lines: [
-      { account: ACCOUNTS.BANK_KREDITI.code, debit: p.principal, credit: 0 },
-      { account: ACCOUNTS.KREDIT_FOIZI.code, debit: p.interest, credit: 0 },
-      { account: cashCode(p.method ?? 'bank'), debit: 0, credit: p.principal + p.interest },
-    ],
+    lines,
   });
 }
 

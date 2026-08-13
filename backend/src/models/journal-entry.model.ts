@@ -30,5 +30,11 @@ export async function ensureJournalEntryIndexes(db: Db): Promise<void> {
     { key: { 'lines.account': 1, month: 1 } },
     // daromad tan olish: to'lov allocations agregatsiyasi
     { key: { kind: 1, 'allocations.month': 1 } },
+    // idempotentlik: bitta davr-yopish hodisasi faqat bir marta
+    {
+      key: { closeKey: 1 },
+      unique: true,
+      partialFilterExpression: { closeKey: { $exists: true } },
+    },
   ]);
 }

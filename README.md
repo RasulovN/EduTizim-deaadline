@@ -17,7 +17,7 @@ npm install          # workspaces: backend + client birga o'rnatiladi
 
 npm run seed         # 3.5 yillik ma'lumot (43 oy, 800 o'quvchi, ~11 000 yozuv)
 npm run reconcile    # uchala tenglikni hamma oy bo'yicha tekshiradi (exit 0/1)
-npm test             # 5 majburiy stsenariy + topshiriq misollari (37 test)
+npm test             # 5 majburiy stsenariy + topshiriq misollari (48 test)
 npm run dev          # API (4000) + frontend (5173) birga
 npm run bench        # hisobotlar unumdorligi o'lchovi
 ```
@@ -153,7 +153,7 @@ farq 0 so'm.**
 
 ## Testlar — `npm test`
 
-**37 test, 7 fayl**, har biri **alohida, toza in-memory MongoDB** da:
+**48 test, 9 fayl**, har biri **alohida, toza in-memory MongoDB** da:
 
 - Topshiriqdagi **5 majburiy stsenariy** — qiymatlar jadvallarning aynan o'zi
 - Topshiriqning **2.3-bo'limidagi yanvar misoli raqamma-raqam**: foyda 13 mln,
@@ -161,6 +161,24 @@ farq 0 so'm.**
 - **2.2-jadvalning inkassatsiya qatori**: P&L ga ham, pul oqimiga ham ta'sir
   yo'q, faqat bir aktivdan ikkinchisiga
 - Ledger invariantlari: balanslanmagan/kasr/manfiy/noma'lum hisob rad etiladi
+- **Idempotentlik**: oy ikki marta yopilsa daromad/xarajat ikkilanmaydi
+- **Biznes validatsiya**: qoldiqdan ortiq ish haqi/kredit to'lovi rad etiladi
+- **Reconcile buzilishni sezadi**: ataylab buzilgan bitta yozuv (ledger'ni
+  chetlab yozilgan) tekshiruvni yiqitadi — reconcile "bezak PASS" emasligining
+  isboti
+
+## Idempotentlik va biznes validatsiya
+
+Jurnal hech qachon jimgina dublikat hodisa yozmaydi:
+
+- Davr-yopish hodisalarida **`closeKey`** (`revenue_recognition:2026-01`,
+  `salary_accrual:2026-01`) + MongoDB **partial unique indeks**. Takror
+  `recognizeMonth` — hech narsa yozmaydi; takror `accrueSalaries` — aniq
+  xato (summasi farq qilishi mumkin — jim o'tkazish xatoni yashirgan bo'lardi).
+- **Ish haqi to'lovi** "to'lanmagan ish haqi" qoldig'idan ortiq bo'lolmaydi;
+  **kredit asosiy qarzi to'lovi** kredit qoldig'idan oshmaydi.
+- To'lov taqsimoti (`allocations`): faqat `YYYY-MM` format, musbat butun
+  summalar, yig'indi to'lov summasiga aniq teng.
 
 ## API
 
@@ -216,7 +234,8 @@ Qilingan optimallashtirishlar va sabablari:
 1. **`month` maydoni denormalizatsiya qilingan** — oy bo'yicha guruhlash
    sana-funksiyalarsiz, indeks bilan ishlaydi (va timezone xatolarini yo'q qiladi).
 2. **Indekslar:** `{date}`, `{month}`, `{lines.account, month}`,
-   `{kind, allocations.month}` (daromad tan olish agregatsiyasi uchun).
+   `{kind, allocations.month}` (daromad tan olish agregatsiyasi uchun),
+   `{closeKey}` partial unique (davr-yopish idempotentligi).
 3. **Agregatsiya bazada** — hujjatlar Node'ga tortilmaydi, faqat guruhlangan
    natija qaytadi.
 4. **Reconcile:** oy oxiri holati keyingi oyning "ochilishi" sifatida qayta
@@ -290,6 +309,12 @@ inkassatsiya.
   yangisini ochmasdan o'sha instansiyaga ulanadi (`config/db.ts`).
 - Embedded rejimda skriptlarni **ketma-ket** ishlating (`seed` tugagach `dev`);
   real MongoDB (`MONGODB_URI`) bilan bunday cheklov yo'q.
+
+## Qo'shimcha hujjatlar
+
+- `docs/INTERVIEW_NOTES.md` — texnik suhbat uchun 15 savol-javob (model
+  asoslanishi, idempotentlik, 100× o'sishda nima o'zgaradi va h.k.)
+- `docs/DEMO_SCRIPT.md` — 30 daqiqalik ekran yozuvi rejasi
 
 ## Ongli cheklovlar
 
