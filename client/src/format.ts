@@ -5,6 +5,12 @@ const MONTH_NAMES = [
   'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr',
 ] as const;
 
+/** Oy tanlagich gridi uchun qisqa nomlar */
+export const MONTHS_SHORT = [
+  'Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn',
+  'Iyl', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek',
+] as const;
+
 /** '2026-07' → 'Iyul 2026' */
 export function monthLabel(key: string): string {
   const [y, m] = key.split('-');

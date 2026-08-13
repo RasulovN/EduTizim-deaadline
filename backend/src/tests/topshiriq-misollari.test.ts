@@ -10,7 +10,7 @@ import {
   recognizeMonth,
   studentPayment,
 } from '../services/postings.js';
-import { balanceSheet, cashFlowByMonth, pnlByMonth } from '../services/reports.js';
+import { balanceSheet, cashFlowByMonth, pnlByMonth, profitCashBridge } from '../services/reports.js';
 import { setupTestDb, type TestContext } from './helpers.js';
 
 /**
@@ -88,6 +88,19 @@ describe("2.3-misol: foyda 13 mln, pul +55 mln", () => {
     const [cf] = await cashFlowByMonth(ctx.db, ['2026-01']);
     const bridge = jan!.netProfit + 40_000_000 + 32_000_000 - 30_000_000;
     expect(bridge).toBe(cf!.netChange);
+  });
+
+  it("profitCashBridge servisi topshiriq jadvalini beradi", async () => {
+    const bridge = await profitCashBridge(ctx.db, '2026-01');
+    expect(bridge.netProfit).toBe(13_000_000);
+    // Oldindan to'langan darslar: 0 → 40 mln (+40)
+    expect(bridge.lines.find((l) => l.code === '2100')?.amount).toBe(40_000_000);
+    // To'lanmagan ish haqi: 30 mln (dekabr) → 32 mln (yanvar) = +2
+    // ya'ni "+32 hisoblandi − 30 to'landi" jadvaldagi ikki qatorning yig'indisi
+    expect(bridge.lines.find((l) => l.code === '2200')?.amount).toBe(2_000_000);
+    expect(bridge.total).toBe(55_000_000);
+    expect(bridge.cashChange).toBe(55_000_000);
+    expect(bridge.matches).toBe(true);
   });
 });
 

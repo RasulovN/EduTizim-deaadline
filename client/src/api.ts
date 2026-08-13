@@ -46,11 +46,28 @@ export interface BalanceSheet {
   imbalance: number;
 }
 
+export interface BridgeLine {
+  code: string;
+  label: string;
+  amount: number;
+}
+
+/** "Nega foyda ≠ pul?" — 2.3-bo'lim ko'prigi, backend'da jonli hisoblanadi */
+export interface ProfitCashBridge {
+  month: string;
+  netProfit: number;
+  lines: BridgeLine[];
+  total: number;
+  cashChange: number;
+  matches: boolean;
+}
+
 export interface MonthlyReports {
   month: string;
   pnl: PnlReport | null;
   cashflow: CashFlowReport | null;
   balance: BalanceSheet;
+  bridge: ProfitCashBridge | null;
 }
 
 export interface ReconcileResult {

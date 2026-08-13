@@ -291,6 +291,86 @@ export async function cashFlowByMonth(db: Db, months?: string[]): Promise<CashFl
   return reports;
 }
 
+// ─────────────────── Foyda ↔ Pul ko'prigi (2.3-bo'lim) ───────────────────
+
+export interface BridgeLine {
+  code: string;
+  label: string;
+  amount: number;
+}
+
+/**
+ * "Nega foyda ≠ pul?" — topshiriqning 2.3-bo'limidagi ko'prik jadvali,
+ * istalgan oy uchun jonli hisoblanadi:
+ *
+ *   Pul o'zgarishi = Sof foyda
+ *                  + majburiyatlar o'zgarishi (2100, 2200, 2300)
+ *                  + kiritilgan kapital o'zgarishi (3100)
+ *                  − pul bo'lmagan aktivlar o'zgarishi (1500)
+ *
+ * Bu ayniyat balans tenglamasidan kelib chiqadi, shuning uchun to'g'ri
+ * tizimda `matches` doim true — frontendda jonli isbot sifatida ko'rinadi.
+ */
+export interface ProfitCashBridge {
+  month: string;
+  netProfit: number;
+  lines: BridgeLine[];
+  total: number; // netProfit + Σ lines
+  cashChange: number; // pul qoldig'ining amaldagi o'zgarishi
+  matches: boolean;
+}
+
+export async function profitCashBridge(db: Db, month: string): Promise<ProfitCashBridge> {
+  const [start, end, pnl] = await Promise.all([
+    balanceSheet(db, prevMonthEnd(month)),
+    balanceSheet(db, monthEnd(month)),
+    pnlByMonth(db, [month]),
+  ]);
+
+  const pick = (bs: BalanceSheet, group: 'assets' | 'liabilities' | 'equity', code: string) =>
+    bs[group].find((l) => l.code === code)?.amount ?? 0;
+  const delta = (group: 'assets' | 'liabilities' | 'equity', code: string) =>
+    pick(end, group, code) - pick(start, group, code);
+
+  const candidates: BridgeLine[] = [
+    {
+      code: ACCOUNTS.OLDINDAN_TOLOV.code,
+      label: "Oldindan to'langan darslar o'zgarishi — pul keldi, lekin hali daromad emas",
+      amount: delta('liabilities', ACCOUNTS.OLDINDAN_TOLOV.code),
+    },
+    {
+      code: ACCOUNTS.ISH_HAQI_QARZI.code,
+      label: "To'lanmagan ish haqi o'zgarishi — xarajat yozildi, pul hali chiqmadi",
+      amount: delta('liabilities', ACCOUNTS.ISH_HAQI_QARZI.code),
+    },
+    {
+      code: ACCOUNTS.BANK_KREDITI.code,
+      label: "Bank krediti o'zgarishi — olish/qaytarish foyda emas, lekin pul harakati",
+      amount: delta('liabilities', ACCOUNTS.BANK_KREDITI.code),
+    },
+    {
+      code: ACCOUNTS.KAPITAL.code,
+      label: "Investor kapitali — pul keldi, lekin daromad emas",
+      amount: delta('equity', ACCOUNTS.KAPITAL.code),
+    },
+    {
+      code: ACCOUNTS.ASOSIY_VOSITALAR.code,
+      label: "Jihoz xaridi — pul chiqdi, lekin xarajat emas (aktivga aylandi)",
+      amount: -delta('assets', ACCOUNTS.ASOSIY_VOSITALAR.code),
+    },
+  ];
+
+  const lines = candidates.filter((l) => l.amount !== 0);
+  const netProfit = pnl[0]?.netProfit ?? 0;
+  const total = netProfit + lines.reduce((s, l) => s + l.amount, 0);
+
+  const cashOf = (bs: BalanceSheet) =>
+    bs.assets.filter((l) => CASH_CODES.includes(l.code)).reduce((s, l) => s + l.amount, 0);
+  const cashChange = cashOf(end) - cashOf(start);
+
+  return { month, netProfit, lines, total, cashChange, matches: total === cashChange };
+}
+
 // ─────────────────────────── Yordamchilar ───────────────────────────
 
 /** Bazadagi barcha oylar (tartiblangan) */

@@ -1,4 +1,4 @@
-import type { BalanceSheet, CashFlowReport, CfCategory, PnlReport } from '../api';
+import type { BalanceSheet, CashFlowReport, CfCategory, PnlReport, ProfitCashBridge } from '../api';
 import { fmtSom, monthLabel } from '../format';
 
 /** Uchala hisobot kartasi — oddiy, o'qiladigan jadvallar */
@@ -14,6 +14,75 @@ function Skeleton() {
         <div className="skeleton" key={i} style={{ width: `${88 - i * 9}%` }} />
       ))}
     </div>
+  );
+}
+
+// ──────────────────── "Nega foyda ≠ pul?" ko'prigi ────────────────────
+
+/**
+ * Direktor uchun eng muhim tushuntirish: sof foyda bilan pul o'zgarishi
+ * orasidagi farq qayerdan kelgani, qatorma-qator. Ikkala yakuniy raqam
+ * mustaqil hisoblanadi — mosligi modelning jonli isboti.
+ */
+export function BridgeCard({
+  bridge,
+  loading,
+}: {
+  bridge: ProfitCashBridge | null;
+  loading: boolean;
+}) {
+  if (!loading && !bridge) return null;
+  const b = bridge!;
+  return (
+    <section className="card bridge" aria-label="Foyda va pul farqi">
+      <header>
+        <h2>Nega foyda ≠ pul?</h2>
+        {!loading && (
+          <span className={b.matches ? 'badge good' : 'badge bad'}>
+            {b.matches ? '✓ aynan mos' : '✕ farq bor'}
+          </span>
+        )}
+      </header>
+      {loading ? (
+        <Skeleton />
+      ) : (
+        <>
+          <table className="report">
+            <tbody>
+              <tr className="row">
+                <td>Sof foyda ({monthLabel(b.month)})</td>
+                <Amount n={b.netProfit} />
+              </tr>
+              {b.lines.map((l) => (
+                <tr className="row" key={l.code}>
+                  <td>
+                    {l.amount >= 0 ? '+' : '−'} {l.label}
+                  </td>
+                  <Amount n={l.amount} />
+                </tr>
+              ))}
+              <tr className="subtotal">
+                <td>= Hisoblangan pul o'zgarishi</td>
+                <Amount n={b.total} />
+              </tr>
+              <tr className={b.matches ? 'total ok' : 'total'}>
+                <td>Amaldagi pul o'zgarishi (kassa + bank)</td>
+                <Amount n={b.cashChange} />
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={2}>
+                  Ikkala yakuniy raqam mustaqil hisoblanadi: yuqoridagisi P&L va balans
+                  o'zgarishlaridan, pastdagisi pul hisoblari harakatidan. Mosligi — model
+                  to'g'riligining isboti (texnik topshiriq, 2.3-bo'lim).
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </>
+      )}
+    </section>
   );
 }
 

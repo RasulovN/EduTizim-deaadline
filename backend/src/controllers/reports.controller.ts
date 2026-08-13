@@ -8,6 +8,7 @@ import {
   cashFlowByMonth,
   listMonths,
   pnlByMonth,
+  profitCashBridge,
 } from '../services/reports.js';
 
 /**
@@ -57,15 +58,22 @@ export const makeReportsController = (db: Db) => ({
     res.json({ report: await balanceSheet(db, asOf) });
   },
 
-  /** Frontend uchun qulaylik: bitta oyning uchala hisoboti bitta so'rovda */
+  /** Frontend uchun qulaylik: bitta oyning uchala hisoboti + ko'prik bitta so'rovda */
   async monthly(req: Request, res: Response): Promise<void> {
     const q = z.object({ month: monthSchema }).parse(req.query);
-    const [pnl, cf, bs] = await Promise.all([
+    const [pnl, cf, bs, bridge] = await Promise.all([
       pnlByMonth(db, [q.month]),
       cashFlowByMonth(db, [q.month]),
       balanceSheet(db, monthEnd(q.month)),
+      profitCashBridge(db, q.month),
     ]);
-    res.json({ month: q.month, pnl: pnl[0] ?? null, cashflow: cf[0] ?? null, balance: bs });
+    res.json({
+      month: q.month,
+      pnl: pnl[0] ?? null,
+      cashflow: cf[0] ?? null,
+      balance: bs,
+      bridge,
+    });
   },
 
   /** Reconcile holati — frontendda "tengliklar mos" belgisi uchun */

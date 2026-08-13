@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, type MonthlyReports, type PnlReport, type ReconcileResult } from '../api';
-import { fmtCompact, monthLabel } from '../format';
-import { BalanceCard, CashFlowCard, PnlCard } from '../components/ReportCards';
+import { fmtCompact } from '../format';
+import { MonthPicker } from '../components/MonthPicker';
+import { BalanceCard, BridgeCard, CashFlowCard, PnlCard } from '../components/ReportCards';
 
 /**
  * Direktor paneli: oy tanlanadi — uchala hisobot ko'rsatiladi.
@@ -77,29 +78,26 @@ export default function DashboardPage() {
   return (
     <>
       <div className="pagebar">
-        <ReconcileBadge r={reconcile} />
-        <div className="month-nav" role="group" aria-label="Oy tanlash">
-          <button
-            onClick={() => setMonth(months[idx - 1]!)}
-            disabled={idx <= 0}
-            aria-label="Oldingi oy"
-          >
-            ‹
-          </button>
-          <select value={month} onChange={(e) => setMonth(e.target.value)}>
-            {months.map((m) => (
-              <option key={m} value={m}>
-                {monthLabel(m)}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => setMonth(months[idx + 1]!)}
-            disabled={idx >= months.length - 1}
-            aria-label="Keyingi oy"
-          >
-            ›
-          </button>
+        <h2 className="page-title">Hisobotlar</h2>
+        <div className="pagebar-controls">
+          <ReconcileBadge r={reconcile} />
+          <div className="month-nav" role="group" aria-label="Oy tanlash">
+            <button
+              onClick={() => setMonth(months[idx - 1]!)}
+              disabled={idx <= 0}
+              aria-label="Oldingi oy"
+            >
+              ‹
+            </button>
+            <MonthPicker months={months} value={month} onChange={setMonth} />
+            <button
+              onClick={() => setMonth(months[idx + 1]!)}
+              disabled={idx >= months.length - 1}
+              aria-label="Keyingi oy"
+            >
+              ›
+            </button>
+          </div>
         </div>
       </div>
 
@@ -118,6 +116,8 @@ export default function DashboardPage() {
         <Tile label="Oy oxiridagi pul" value={cf ? fmtCompact(cf.closing) : '—'} />
         <Tile label="Jami aktivlar" value={bs ? fmtCompact(bs.totalAssets) : '—'} />
       </div>
+
+      <BridgeCard bridge={data?.bridge ?? null} loading={loading} />
 
       <div className="reports">
         <PnlCard report={pnl} loading={loading} />
