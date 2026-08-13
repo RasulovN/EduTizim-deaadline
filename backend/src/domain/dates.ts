@@ -57,3 +57,16 @@ export function endOfDay(date: Date): Date {
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999),
   );
 }
+
+/** Topshiriq qoidasi: ish haqi keyingi oyning 5-sanasida to'lanadi */
+export const SALARY_PAYMENT_DAY = 5;
+
+/**
+ * Berilgan oyda hisoblangan ish haqi QACHON to'lanadi — keyingi oyning
+ * 5-sanasi. Masalan: '2026-01' → 2026-02-05, '2026-12' → 2027-01-05.
+ * (Soat 10:00 UTC — seed'dagi kun ichi hodisalar tartibi saqlanishi uchun.)
+ */
+export function salaryPaymentDateFor(month: string): Date {
+  const next = parseMonthKey(addMonths(month, 1));
+  return utcDate(next.year, next.month, SALARY_PAYMENT_DAY, 10);
+}

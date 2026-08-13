@@ -1,7 +1,14 @@
 import type { Db } from 'mongodb';
 import { closeDb, connectDb, ensureIndexes } from '../config/db.js';
 import { AUTH_COLLECTIONS, type UserDoc } from '../domain/authTypes.js';
-import { addMonths, lastDayOfMonth, monthRange, parseMonthKey, utcDate } from '../domain/dates.js';
+import {
+  addMonths,
+  lastDayOfMonth,
+  monthRange,
+  parseMonthKey,
+  salaryPaymentDateFor,
+  utcDate,
+} from '../domain/dates.js';
 import { postMany, type NewEntry } from '../domain/ledger.js';
 import { ensureAuthSetup, usersExist } from '../services/authService.js';
 import { hashPassword } from '../services/passwords.js';
@@ -230,14 +237,15 @@ async function seed(db: Db): Promise<void> {
     }
     entryCount += await postMany(db, paymentBatch);
 
-    // 2) O'tgan oy ish haqining to'lovi (5-sana)
+    // 2) O'tgan oy ish haqining to'lovi — sana domain qoidasidan:
+    //    salaryPaymentDateFor(prevMonth) = keyingi oyning 5-sanasi
     if (idx > 0) {
       const prevMonth = months[idx - 1]!;
       const prevAccrued = employees
         .filter((e) => e.startMonth <= prevMonth)
         .reduce((sum, e) => sum + e.salary, 0);
       if (prevAccrued > 0) {
-        await paySalaries(db, { date: utcDate(year, m, 5, 10), amount: prevAccrued, forMonth: prevMonth });
+        await paySalaries(db, { date: salaryPaymentDateFor(prevMonth), amount: prevAccrued, forMonth: prevMonth });
         entryCount++;
       }
     }
